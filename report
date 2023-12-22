@@ -1,0 +1,124 @@
+#!/usr/bin/env sh
+#
+# This script can be used to generateq penetration testing reports
+# starting from either a markdown file or an org-mode file in order to
+# produce a final PDF artifact.
+#
+# Usage: 
+#   report report.org
+#   report report.md
+#
+# Author: Leonardo Tamiano
+#
+INPUT_PATH=""
+OUTPUT_PATH="report.pdf"
+
+check_requirements() {
+    # is pandoc installed?
+    which pandoc >/dev/null 2>&1    
+    [ $? -eq 1 ] &&\
+	echo "[ERROR]: missing pandoc!" &&\
+	exit;
+
+    [[ $# -ne 1 ]] &&\
+	echo "[ERROR]: missing input file!" &&\
+	exit;
+
+    [ ! -f $1 ] &&\
+	echo "[ERROR]: input file does not exist!" &&\
+	exit;
+    
+    filename=$(basename -- $1)
+    extension="${filename##*.}"
+    
+    [ ! "$extension" = "org" ] && [ ! "$extension" = "md" ] &&\
+	echo "[ERROR]: Input file can only be '.org' or '.md'" &&\
+	exit;
+
+    INPUT_PATH=$1   
+}
+
+# -----
+
+md2pdf() {
+    REPORT_MD_PATH=$1
+    REPORT_PDF_PATH=$2
+    
+    pandoc $REPORT_MD_PATH -o $REPORT_PDF_PATH \
+	   --from markdown+yaml_metadata_block+raw_html \
+	   --template eisvogel \
+	   --listing \
+	   -V colorlinks=true \
+	   -V linkcolor=orange \
+	   -V urlcolor=orange \
+	   -V toccolor=black \
+	   --table-of-contents \
+	   --toc-depth 6 \
+	   --number-sections \
+	   --top-level-division=chapter \
+	   --highlight-style zenburn \
+	   --resource-path=.:src \
+	   --resource-path=.:/usr/share/osert/src
+
+    [ $? -eq 1 ] && echo "[ERROR]: Problems during generation of PDF!" && exit;
+}
+
+# -----
+
+org2pdf() {
+    REPORT_ORG_PATH=$1
+    REPORT_PDF_PATH=$2
+
+    pandoc $REPORT_ORG_PATH -o $REPORT_PDF_PATH \
+	   --from org \
+	   --template eisvogel \
+	   --listing \
+	   -V colorlinks=true \
+	   -V linkcolor=orange \
+	   -V urlcolor=orange \
+	   -V toccolor=black \
+	   -V titlepage=true \
+	   -V titlepage-color="F2F3F5" \
+	   -V titlepage-text-color="000000" \
+	   -V titlepage-rule-color="000000" \
+	   -V titlepage-rule-height=2 \
+	   -V book=true \
+	   -V classoption=oneside \
+	   -V code-block-font-size=\\scriptsize \
+	   --table-of-contents \
+	   --toc-depth 6 \
+	   --number-sections \
+	   --top-level-division=chapter \
+	   --highlight-style zenburn \
+	   --resource-path=.:src \
+	   --resource-path=.:/usr/share/osert/src
+    
+    [ $? -eq 1 ] && echo "[ERROR]: Problems during generation of PDF!" && exit;
+}
+
+# -----
+
+main() {
+    echo "[INFO]: Checking requirements"
+    
+    # we all good?
+    check_requirements $@
+    
+    echo "[INFO]: All good, we're ready to generate!"
+
+    # Ok, generate!
+    [ "${INPUT_PATH##*.}" = "org" ] && \
+	echo "[INFO]: org->pdf" && \
+	org2pdf $INPUT_PATH $OUTPUT_PATH
+    
+    [ "${INPUT_PATH##*.}" = "md" ] && \
+	echo "[INFO]: md->pdf" && \
+	md2pdf $INPUT_PATH $OUTPUT_PATH
+
+    exit 0;
+}
+
+
+# ----------------------------
+
+main $@
